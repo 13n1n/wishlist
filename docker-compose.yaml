@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  wishlist:
+    build: .
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wishlist.rule=Host(`wishlist.vesnin.site`)"
+      - "traefik.http.services.wishlist.loadbalancer.server.port=5000"
+      - "traefik.http.routers.wishlist.entrypoints=websecure"
+      - "traefik.http.routers.wishlist.tls=true"
+      - "traefik.http.routers.wishlist.tls.certresolver=le"
+    networks:
+      - traefik-net
+
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: local
+      POSTGRES_PASSWORD: sql
+    volumes:
+      - stuff:/var/lib/postgresql/data
+    networks:
+      - traefik-net
+
+volumes:
+  stuff: {}
+networks:
+  traefik-net:
+    external: true
