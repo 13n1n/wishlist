@@ -1,12 +1,13 @@
-# use the official Bun image
-# see all versions at https://hub.docker.com/r/oven/bun/tags
-FROM oven/bun:1
-WORKDIR /usr/src/app
+FROM python:3.12
 
-ADD package.json bun.lockb ./
-RUN bun install
+
+RUN apt update && apt install -y ffmpeg mediainfo && pip install poetry poetry-plugin-export
+
+
+WORKDIR /app
+
+ADD pyproject.toml poetry.lock ./
+RUN bash -c 'pip install -r <(poetry export)'
 ADD . ./
 
-USER bun
-EXPOSE 3000/tcp
-ENTRYPOINT [ "bun", "run", "index.tsx" ]
+CMD ["python", "-m", "wishlist"]

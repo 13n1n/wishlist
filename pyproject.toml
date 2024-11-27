@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "moviz"
+version = "0.1.0"
+description = ""
+authors = ["Yuri Vesnin <uvesnin@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+Flask = "^3.0.3"
+waitress = "^3.0.0"
+filetype = "^1.2.0"
+schedule = "^1.2.2"
+ffmpeg-python = "^0.2.0"
+pymediainfo = "^6.1.0"
+sqlalchemy = "^2.0.36"
+psycopg2 = "^2.9.10"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
+flake8 = "^7.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
