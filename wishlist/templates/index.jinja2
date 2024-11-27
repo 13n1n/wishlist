@@ -35,10 +35,10 @@ form {
 
 form > * {
     height: 22pt;
-    display: inline;
+    display: inline-block;
 }
 
-input {
+input, form > div {
     width: 85%;
 }
 
@@ -88,21 +88,27 @@ button:active {
 
         {% for wish in env.get('wishlist', []) %}
             <form action="/wish/{{ wish.id }}" method="post">
-                <input name="text" type="text" placeholder="Leave empty to remove" value="{{ wish.text }}" />
-                {% set disabled = not env["user_id"] or (int(env["user_id"]) != wish.taken_id and wish.taken_id is not none) %}
-                <button {% if disabled %} disabled {% endif %} type="submit">
+
+                {% if not env["user_id"] %}
+                    <div class=".entry">{{ wish.text | render_html | safe }}</div>
+                    <button disabled type="submit">Take</button>
+                {% elif wish.taken_id is not none %}
+
                     {% if env["user_id"] == wish.owner_id %}
-                        Update
+                        <input name="text" type="text" placeholder="Leave empty to remove" value="{{ wish.text }}" />
+                        <button type="submit" onclick="return confirm('Wish is booked, are you sure to remove?');">Remove</button>
+                    {% elif env["user_id"] == wish.taken_id %}
+                        <div class=".entry">{{ wish.text | render_html | safe }}</div>
+                        <button type="submit">Forgive</button>
                     {% else %}
-                        {% if env["user_id"] == wish.taken_id %}
-                            Forgive
-                        {% elif wish.taken_id is none %}
-                            Take
-                        {% else %}
-                            Already
-                        {% endif %}
+                        <div class=".entry">{{ wish.text | render_html | safe }}</div>
+                        <button disabled type="submit">Already</button>
                     {% endif %}
-                </button>
+
+                {% else %}
+                    <input name="text" type="text" placeholder="Leave empty to remove" value="{{ wish.text }}" />
+                    <button type="submit">Update</button>
+                {% endif %}
             </form>
         {% endfor %}
     </body>

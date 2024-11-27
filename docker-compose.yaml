@@ -25,6 +25,8 @@ services:
       - stuff:/var/lib/postgresql/data
     networks:
       - traefik-net
+    ports:
+      - 38281:5432
 
 volumes:
   stuff: {}

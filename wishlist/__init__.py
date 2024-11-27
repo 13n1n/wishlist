@@ -4,22 +4,33 @@ from sqlalchemy import orm
 from sqlalchemy import Column, String, Integer, BigInteger, create_engine
 
 
-
 app = flask.Flask("wishlist", template_folder="templates")
-app.config['SECRET_KEY'] = "YOUWILLNEVERGUESSTHIS"
 
-app.jinja_env.globals.update(int=int) #айди бота из токена до знака ":"
-app.jinja_env.globals.update(BOTID="7290461904") #айди бота из токена до знака ":"
-app.jinja_env.globals.update(BOTNAME="wish4wish_bot") #имя вашего бота с приставкой bot
-app.jinja_env.globals.update(BOTDOMAIN="wishlist.vesnin.site") #домен вашего сайта из /setdomain в BotFather (обычно http://127.0.0.1:5000)
 
+@app.template_filter()
+def render_html(markup: str) -> str:
+    import re
+
+    # Регулярное выражение для поиска ссылок вида http(s)://...
+    pattern = r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
+
+    def make_link(match):
+        link = match.group(0)
+        return f'<a href="{link}" target="_blank">{link}</a>'
+
+    # Применяем регулярное выражение к строке и заменяем найденные ссылки
+    result = re.sub(pattern, make_link, markup)
+
+    # Возвращаем результат в виде безопасного HTML-кода
+    return result
+    
 
 Base = orm.declarative_base()
 class Wish(Base):
     __tablename__ = "wish"
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    text = Column(String(100), nullable=False)
+    text = Column(String(2048), nullable=False)
     owner_id = Column(BigInteger, nullable=False)
     taken_id = Column(BigInteger, nullable=True)
 
@@ -36,15 +47,6 @@ class User(Base):
 
     bio = Column(String(1000), nullable=True)
 
-
-db = create_engine("postgresql://postgres:postgres@postgres/wishlist")
-Base.metadata.create_all(db)
-Session = orm.sessionmaker(db)
-session = Session()
-
-
-logging.basicConfig(format="%(asctime)s %(message)s")
-logging.getLogger().setLevel(0)
 
 
 @app.before_request
@@ -126,9 +128,9 @@ def bio():
 @app.route("/wish", methods=["POST"])
 def wish(id: int = None):
     env = dict(**flask.session)
-    logging.info("Wish/session: %s", env)
+    from_id = flask.request.referrer.split("/")[-1]
+    logging.info("Wish/session: %s from %s", env, from_id)
 
-    redirect = ""
     if id is None:
         session.add(wish:=Wish(
             text = flask.request.form.get("text"),
@@ -136,27 +138,46 @@ def wish(id: int = None):
         ))
         logging.info("Commiting wish %s", wish)
         session.commit()
-        redirect = env["user_id"]
-    else:
-        wish: Wish = session.query(Wish).get(id)
+        return flask.redirect(f'/{from_id}')
+    
+    wish: Wish = session.query(Wish).get(id)
 
-        logging.info("ids: %d %d", int(env["user_id"]), wish.owner_id)
+    if wish.taken_id is not None and int(env["user_id"]) == wish.owner_id:
+        session.delete(wish)
 
-        if int(env["user_id"]) == wish.owner_id:
-            txt = flask.request.form.get("text", wish.text)
-            if txt == "":
-                session.delete(wish)
-            else:
-                wish.text = txt
-            redirect = env["user_id"]
+    elif int(env["user_id"]) == wish.owner_id:
+        txt = flask.request.form.get("text", wish.text)
+        if txt == "":
+            session.delete(wish)
+        else:
+            wish.text = txt
 
-        if int(env["user_id"]) != wish.owner_id:
-            if wish.taken_id == int(env["user_id"]):
-                wish.taken_id = None
-            else:
-                wish.taken_id = int(env["user_id"])
-            redirect = wish.owner_id
+    elif int(env["user_id"]) != wish.owner_id:
+        if wish.taken_id == int(env["user_id"]):
+            wish.taken_id = None
+        else:
+            wish.taken_id = int(env["user_id"])
 
-        session.commit()
+    session.commit()
 
-    return flask.redirect(f'/{redirect}')
+    return flask.redirect(f'/{from_id}')
+
+
+def init():
+    global session
+
+    logging.basicConfig(format="%(asctime)s %(message)s")
+    logging.getLogger().setLevel(0)
+
+    app.config['SECRET_KEY'] = "YOUWILLNEVERGUESSTHIS"
+
+    app.jinja_env.globals.update(int=int)
+    app.jinja_env.globals.update(BOTID="7290461904")
+    app.jinja_env.globals.update(BOTNAME="wish4wish_bot")
+    app.jinja_env.globals.update(BOTDOMAIN="wishlist.vesnin.site")
+
+
+    db = create_engine("postgresql://postgres:postgres@postgres/wishlist")
+    Base.metadata.create_all(db)
+    Session = orm.sessionmaker(db)
+    session = Session()
